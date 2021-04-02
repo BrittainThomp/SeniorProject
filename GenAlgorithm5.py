@@ -79,18 +79,15 @@ def fitnessfunc(file):
     noteDurations=[]
     badNote=0
     totalDuration = 0
+    goodNotes = 0
 
 
     # init scale 2d array
     scale = [[i for i in range(12)] for j in range(8)]
     
     # dominant diminished scale
-    c_scale = [0,1,2,4,5,7,8,10,11,13,14]
-
-
-    # for i in range(len(scales)-1):
-    #     for j in range(8):
-    #         scale[i][j]=scales[j]
+    c_scale = [2,4,5,7,8,10,11,13,14]
+   
 
     with open(file,'r') as f:
         fitness = 0
@@ -101,14 +98,28 @@ def fitnessfunc(file):
                 continue
             noteList.append(int(row[0].strip("[']")))
 
+        for k in range(len(noteList)-1):
+            phraseRest=0
+            j=0
+            for j in range(10):
+                if k+j <len(noteList)-1:
+                    if noteList[k+j]==0:
+                        phraseRest+=1
+            if phraseRest<1 and phraseRest>2:
+                fitness+=5
+            k+=10
+
+
         for i in range(len(noteList)-2):
             duration = 1
 
             # checks for repeated notes
-            if noteList[i] == noteList[i+1] == noteList[i+2] != 1:
-                fitness+=1
+            if i+4 <(len(noteList)-1):
+                if noteList[i] == noteList[i+1] == noteList[i+2] == noteList[i+3] != 1:
+                    fitness+=1
+
          
-            #checks for notes duration. Remember: Since a 1 represents a held note, we need
+            # checks for notes duration. Remember: Since a 1 represents a held note, we need
             # to score those seperately from a repated note.
             duration = 1
             totalDuration = 0
@@ -119,35 +130,28 @@ def fitnessfunc(file):
                         totalDuration+=1
                     else:
                         break
-                if duration >= 16:
+                if duration >= 8:
                     fitness += 10
             noteDurations.append(duration)
             
             # checks for next note in scales
-            found=False
             for index in range(len(c_scale)-1):
-                if noteList[i]==c_scale[index]:
-                    found=True
-            if found==False:
-                fitness+=5
-                badNote+=1
+                if noteList[i]!=c_scale[index] and noteList[i]!=0 and noteList[i] != 1:
+                    badNote+=1
             
 
-        if totalDuration<len(noteList)*.3:
+        if totalDuration<len(noteList)*.2:
             fitness+=10*((len(noteList)*.5)-totalDuration)
 
         #check how many bad notes
         if badNote>len(noteList)*.1:
             fitness+=badNote
+        
+
         # assess the amount of rests
         rests = noteList.count(0)
-        if rests<len(noteList)*.3 or rests>len(noteList)*.4:
-            fitness+=10*rests
-        
-        
-        # I considered two different methods for this. One was utilizing sum() function and iterating the list
-        # while the other was the much cleaner ptsdev() func from the statistics library. I opted for the
-        # cleaner approach. Utilizing pstdev to get a meaningful measurement is something I will improve.
+        if rests>len(noteList)*.25 and rests<len(noteList)*.1:
+            fitness+=rests
 
         # using standard deviation to promote a varied note selection 
         noteVaried = math.trunc(statistics.pstdev(noteList))
@@ -174,6 +178,8 @@ def scaleSelect(val):
         8: []
     }
 
+#gens is the amount of generations to evolve through and length is the number of notes
+#to be generated in the melody.
 def geneticAlg(gens,length):
     #init parent arrays outside of generation iteration so they aren't wiped everytime
     ancestors = []
@@ -186,7 +192,7 @@ def geneticAlg(gens,length):
     for j in range(100):
         #create a parent melody with defined length and name it by generation and parent
         ancestors.append(genMelody(length,'Y:/sr_project/results/ancestors'+str(j)))
-        #score the parent. This isn't a good way to store this data.
+        #score the parent.
         breedScore = fitnessfunc(ancestors[j])
         breeders.append({'name':ancestors[j], 'score':breedScore})
     
@@ -196,7 +202,7 @@ def geneticAlg(gens,length):
 
         tourney=[]
         for breeding in range(50):
-            for some in range(5):
+            for some in range(10):
                 tourney.append(sortedBreeders[random.randint(0,99)])
             tourney = sorted(tourney, key = lambda i: i['score'])
 
@@ -251,8 +257,11 @@ def geneticAlg(gens,length):
             kidScore = fitnessfunc(fName)
             children.append({'name':fName, 'score':kidScore})
         
+        children[len(children)-2] = sortedBreeders[0]
+        children[len(children)-1] = sortedBreeders[1]
         #turn children into sortedBreeders                   
         sortedBreeders = sorted(children, key = lambda i: i['score'])
+
 
         #assign best and worst
         if i==0:
@@ -265,27 +274,27 @@ def geneticAlg(gens,length):
             worst=sortedBreeders[99]
         
         print("Best child of generation "+str(i+1)+": "+str(sortedBreeders[0]['score']))
-        print("Worst child of generation "+str(i+1)+": "+str(sortedBreeders[99]['score']))
+        # print("Worst child of generation "+str(i+1)+": "+str(sortedBreeders[99]['score']))
 
         #clear children for next gen
         children = []
 
         if i==0:
-            outputMelody(best['name'],"Y:/sr_project/demo3/firstBest")
-            outputMelody(worst['name'],"Y:/sr_project/demo3/firstWorst")
+            outputMelody(best['name'],"Y:/sr_project/demo5/firstBest")
+            outputMelody(worst['name'],"Y:/sr_project/demo5/firstWorst")
         
         if i==(gens/2):
-            outputMelody(best['name'],"Y:/sr_project/demo3/middleBest")
-            outputMelody(worst['name'],"Y:/sr_project/demo3/middleWorst")
+            outputMelody(best['name'],"Y:/sr_project/demo5/middleBest")
+            outputMelody(worst['name'],"Y:/sr_project/demo5/middleWorst")
 
-    outputMelody(best['name'],"Y:/sr_project/demo3/finalBest")
-    outputMelody(worst['name'],"Y:/sr_project/demo3/finalWorst")
+    outputMelody(best['name'],"Y:/sr_project/demo5/finalBest")
+    outputMelody(worst['name'],"Y:/sr_project/demo5/finalWorst")
     
     print("results from "+ str(gens) +" generations of melodies size "+ str(length))
     print("best: "+ str(best['score'])+ " | worst: "+ str(worst['score']))
 
 # run it
-geneticAlg(500,1024)
+geneticAlg(1000,1024)
 # fitnessfunc(genMelody(1024,"test"))
 
 
