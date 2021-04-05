@@ -16,7 +16,7 @@ def genMelody(notes,filename):
         
         # melody will store the array of notes.
         melody = []
-        for i in range(notes):
+        for _ in range(notes):
             noteType = str(random.randint(0,14))           
             string = str(noteType)
             melody.append(string)
@@ -32,8 +32,6 @@ def outputMelody(notes,out):
             read = csv.reader(f, delimiter=',')
             noteList = []
             for row in read:
-                if row==[]:
-                    continue
                 noteList.append(row[0])
 
     with open(out+".csv",'w') as results:
@@ -75,18 +73,10 @@ def outputMelody(notes,out):
             midi_writer = pm.FileWriter(out_file)
             midi_writer.write(midi_obj)
     
-def fitnessfunc(file):
+def fitnessfunc(file,scale):
     noteDurations=[]
     badNote=0
-    totalDuration = 0
-    goodNotes = 0
-
-
-    # init scale 2d array
-    scale = [[i for i in range(12)] for j in range(8)]
-    
-    # dominant diminished scale
-    c_scale = [2,4,5,7,8,10,11,13,14]
+    totalDuration = 0    
    
 
     with open(file,'r') as f:
@@ -94,29 +84,45 @@ def fitnessfunc(file):
         read = csv.reader(f, delimiter=',')
         noteList = []
         for row in read:
-            if row == []:
-                continue
+
             noteList.append(int(row[0].strip("[']")))
 
-        for k in range(len(noteList)-1):
+        # assess phrase for rests
+        for k in range(0,len(noteList)-1,10):
             phraseRest=0
             j=0
-            for j in range(10):
+            half1=0
+            half2=0
+            for j in range(0,10):
                 if k+j <len(noteList)-1:
                     if noteList[k+j]==0:
-                        phraseRest+=1
-            if phraseRest<1 and phraseRest>2:
-                fitness+=5
-            k+=10
+                        phraseRest+=1 
+                
+                # call and response assessment
+
+                for note1 in range(k,k+4):
+                    if note1+1<len(noteList):
+                        half1+=noteList[note1]-noteList[note1+1]
+                for note2 in range(k+4,k+9):
+                    if note2+1<len(noteList):
+                        half2+=noteList[note2]-noteList[note2+1]
+                if half1<0 and half2<0:
+                    fitness+=abs(half1-half2)
+                if half1>0 and half2>0:
+                    fitness+=abs(half1-half2)
+
+            if phraseRest>3:
+                fitness+=6
 
 
         for i in range(len(noteList)-2):
+            found = False
             duration = 1
 
             # checks for repeated notes
-            if i+4 <(len(noteList)-1):
+            if i+3 <(len(noteList)-1):
                 if noteList[i] == noteList[i+1] == noteList[i+2] == noteList[i+3] != 1:
-                    fitness+=1
+                    fitness+=5
 
          
             # checks for notes duration. Remember: Since a 1 represents a held note, we need
@@ -135,13 +141,17 @@ def fitnessfunc(file):
             noteDurations.append(duration)
             
             # checks for next note in scales
-            for index in range(len(c_scale)-1):
-                if noteList[i]!=c_scale[index] and noteList[i]!=0 and noteList[i] != 1:
-                    badNote+=1
+            # THIS IS THE ISSUE FIX THIS
+            for index in range(len(scale)-1):
+                if noteList[i]==scale[index]:
+                    found = True
+            if noteList[i]!=0 and noteList[i] != 1 and found == False:
+                fitness+=5
+                    
             
 
         if totalDuration<len(noteList)*.2:
-            fitness+=10*((len(noteList)*.5)-totalDuration)
+            fitness+=5*(1+(2-totalDuration))
 
         #check how many bad notes
         if badNote>len(noteList)*.1:
@@ -150,18 +160,21 @@ def fitnessfunc(file):
 
         # assess the amount of rests
         rests = noteList.count(0)
-        if rests>len(noteList)*.25 and rests<len(noteList)*.1:
-            fitness+=rests
+        if rests>len(noteList)*.25 or rests<len(noteList)*.1:
+            if rests>len(noteList)*.25:
+                fitness+=rests-(len(noteList)*.25)
+            elif rests<len(noteList)*.1:
+                fitness+=(len(noteList)*.1)-rests
 
         # using standard deviation to promote a varied note selection 
         noteVaried = math.trunc(statistics.pstdev(noteList))
         if noteVaried < 2:
-            fitness+=5*(2-noteVaried)
+            fitness+=5*(1+(2-noteVaried))
 
         #checks for a varied note duration
         durationVaried = math.trunc(statistics.pstdev(noteDurations))
         if durationVaried < 3:
-            fitness+= 5*(4-durationVaried)
+            fitness+= 5*(1+(3-durationVaried))
     return fitness
 
 def scaleSelect(val):
@@ -175,8 +188,17 @@ def scaleSelect(val):
         5: [2,4,6,7,9,11,12,14],    #Mixolydian Scale
         6: [2,4,5,7,9,10,12,14],    #Aeolian Scale
         7: [2,3,5,7,8,10,12,14],    #Locrian Scale
-        8: []
+        8: [2,4,5,7,8,10,11,13,14], #Whole-Half Diminished Scale
+        9: [3,4,6,7,9,11,13],       #Altered Scale
+        10:[2,4,6,8,10,12,14],      #Whole-Tone Scale
+        11:[2,5,7,8,9,12,14],       #Minor Pentatonic Scale
+        12:[2,4,6,8,9,11,12,14],    #Lydian Dominant Scale
+        13:[2,4,6,7,9,11,13,14],    #Major Bebop Scale
+        14:[2,4,6,7,9,10,11,13,14], #Minor Bebop Scale
+        15:[2,4,6,7,9,11,12,13,14]  #Mixolydian Bebop Scale
     }
+    print("Selected scale: " +str(switch.get(val)))
+    return switch.get(val)
 
 #gens is the amount of generations to evolve through and length is the number of notes
 #to be generated in the melody.
@@ -186,14 +208,16 @@ def geneticAlg(gens,length):
     breeders = []
     children = []
 
+    # set scale in key of C
+    scale = scaleSelect(random.randint(0,15))
     
 
     #fill the first ancestors
     for j in range(100):
         #create a parent melody with defined length and name it by generation and parent
-        ancestors.append(genMelody(length,'Y:/sr_project/results/ancestors'+str(j)))
+        ancestors.append(genMelody(length,'/Users/thompson/Desktop/Spring21/SeniorProject/SeniorProject-master/results/ancestors'+str(j)))
         #score the parent.
-        breedScore = fitnessfunc(ancestors[j])
+        breedScore = fitnessfunc(ancestors[j],scale)
         breeders.append({'name':ancestors[j], 'score':breedScore})
     
     sortedBreeders=sorted(breeders, key = lambda i: i['score'])
@@ -202,7 +226,7 @@ def geneticAlg(gens,length):
 
         tourney=[]
         for breeding in range(50):
-            for some in range(10):
+            for _ in range(10):
                 tourney.append(sortedBreeders[random.randint(0,99)])
             tourney = sorted(tourney, key = lambda i: i['score'])
 
@@ -236,25 +260,25 @@ def geneticAlg(gens,length):
                     kid2.append(parent1[note])
 
             #mutate
-            for gene in range(random.randint(0,20)):
+            for _ in range(random.randint(0,20)):
                 kid1[random.randint(0,length-2)]=random.randint(0,14)
                 kid2[random.randint(0,length-2)]=random.randint(0,14)
 
             #convert to csv for scoring of both kids
-            fName = "Y:/sr_project/results/gen"+str(i+1)+"BreedingSet"+str(breeding+1)+"kid1.csv"
+            fName = "/Users/thompson/Desktop/Spring21/SeniorProject/SeniorProject-master/results/gen"+str(i+1)+"BreedingSet"+str(breeding+1)+"kid1.csv"
             with open(fName,'w') as f:
                 writer = csv.writer(f, delimiter=',')
                 for row in kid1:
                     writer.writerow([row]) 
-            kidScore = fitnessfunc(fName)
+            kidScore = fitnessfunc(fName,scale)
             children.append({'name':fName, 'score':kidScore})
 
-            fName = "Y:/sr_project/results/gen"+str(i+1)+"BreedingSet"+str(breeding+1)+"kid2.csv"
+            fName = "/Users/thompson/Desktop/Spring21/SeniorProject/SeniorProject-master/results/gen"+str(i+1)+"BreedingSet"+str(breeding+1)+"kid2.csv"
             with open(fName,'w') as f:
                 writer = csv.writer(f, delimiter=',')
                 for row in kid2:
                     writer.writerow([row]) 
-            kidScore = fitnessfunc(fName)
+            kidScore = fitnessfunc(fName,scale)
             children.append({'name':fName, 'score':kidScore})
         
         children[len(children)-2] = sortedBreeders[0]
@@ -280,21 +304,21 @@ def geneticAlg(gens,length):
         children = []
 
         if i==0:
-            outputMelody(best['name'],"Y:/sr_project/demo5/firstBest")
-            outputMelody(worst['name'],"Y:/sr_project/demo5/firstWorst")
+            outputMelody(best['name'],"/Users/thompson/Desktop/Spring21/SeniorProject/SeniorProject-master/test6/firstBest")
+            outputMelody(worst['name'],"/Users/thompson/Desktop/Spring21/SeniorProject/SeniorProject-master/test6/firstWorst")
         
         if i==(gens/2):
-            outputMelody(best['name'],"Y:/sr_project/demo5/middleBest")
-            outputMelody(worst['name'],"Y:/sr_project/demo5/middleWorst")
+            outputMelody(best['name'],"/Users/thompson/Desktop/Spring21/SeniorProject/SeniorProject-master/test6/middleBest")
+            outputMelody(worst['name'],"/Users/thompson/Desktop/Spring21/SeniorProject/SeniorProject-master/test6/middleWorst")
 
-    outputMelody(best['name'],"Y:/sr_project/demo5/finalBest")
-    outputMelody(worst['name'],"Y:/sr_project/demo5/finalWorst")
+    outputMelody(best['name'],"/Users/thompson/Desktop/Spring21/SeniorProject/SeniorProject-master/test6/finalBest")
+    outputMelody(worst['name'],"/Users/thompson/Desktop/Spring21/SeniorProject/SeniorProject-master/test6/finalWorst")
     
     print("results from "+ str(gens) +" generations of melodies size "+ str(length))
     print("best: "+ str(best['score'])+ " | worst: "+ str(worst['score']))
 
 # run it
-geneticAlg(1000,1024)
+geneticAlg(500,1024)
 # fitnessfunc(genMelody(1024,"test"))
 
 
