@@ -84,7 +84,8 @@ def fitnessfunc(file,scale):
         read = csv.reader(f, delimiter=',')
         noteList = []
         for row in read:
-
+            if row == []:
+                continue
             noteList.append(int(row[0].strip("[']")))
 
         # assess phrase for rests
