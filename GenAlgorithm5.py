@@ -49,8 +49,8 @@ def outputMelody(notes,out):
             elif(noteList[i] not in "1" and noteList[i] not in "0"):
                 midi.append("1, " + str(time) + ", Note_on_c, 0, " + str(int(noteList[i])+46) + ", 127")
                 time+=480
-            j = i+1
 
+            j = i+1
             if(j<(len(noteList)-1) and (noteList[j] in "1" or noteList[j] in "0")):
                 while(noteList[j] in "1" and j<(len(noteList)-1)):
                     time+=480
@@ -87,6 +87,7 @@ def fitnessfunc(file,scale):
             if row == []:
                 continue
             noteList.append(int(row[0].strip("[']")))
+        f.close()
 
         # assess phrase for rests
         for k in range(0,len(noteList)-1,10):
@@ -108,9 +109,9 @@ def fitnessfunc(file,scale):
                     if note2+1<len(noteList):
                         half2+=noteList[note2]-noteList[note2+1]
                 if half1<0 and half2<0:
-                    fitness+=abs(half1-half2)
+                    fitness+=5
                 if half1>0 and half2>0:
-                    fitness+=abs(half1-half2)
+                    fitness+=5
 
             if phraseRest>3:
                 fitness+=6
@@ -142,7 +143,6 @@ def fitnessfunc(file,scale):
             noteDurations.append(duration)
             
             # checks for next note in scales
-            # THIS IS THE ISSUE FIX THIS
             for index in range(len(scale)-1):
                 if noteList[i]==scale[index]:
                     found = True
@@ -151,7 +151,7 @@ def fitnessfunc(file,scale):
                     
             
 
-        if totalDuration<len(noteList)*.2:
+        if totalDuration<len(noteList)*.3:
             fitness+=5*(1+(2-totalDuration))
 
         #check how many bad notes
@@ -161,7 +161,7 @@ def fitnessfunc(file,scale):
 
         # assess the amount of rests
         rests = noteList.count(0)
-        if rests>len(noteList)*.25 or rests<len(noteList)*.1:
+        if rests>len(noteList)*.25 or rests<len(noteList)*.15:
             if rests>len(noteList)*.25:
                 fitness+=rests-(len(noteList)*.25)
             elif rests<len(noteList)*.1:
@@ -169,12 +169,12 @@ def fitnessfunc(file,scale):
 
         # using standard deviation to promote a varied note selection 
         noteVaried = math.trunc(statistics.pstdev(noteList))
-        if noteVaried < 2:
+        if noteVaried < 4:
             fitness+=5*(1+(2-noteVaried))
 
         #checks for a varied note duration
         durationVaried = math.trunc(statistics.pstdev(noteDurations))
-        if durationVaried < 3:
+        if durationVaried < 4:
             fitness+= 5*(1+(3-durationVaried))
     return fitness
 
@@ -248,6 +248,7 @@ def geneticAlg(gens,length):
                     if row==[]:
                         continue
                     parent2.append(int(row[0].strip("[']")))
+
             kid1=[]
             kid2=[]
             #crossover to make siblings
@@ -305,15 +306,15 @@ def geneticAlg(gens,length):
         children = []
 
         if i==0:
-            outputMelody(best['name'],"/Users/thompson/Desktop/Spring21/SeniorProject/SeniorProject-master/test6/firstBest")
-            outputMelody(worst['name'],"/Users/thompson/Desktop/Spring21/SeniorProject/SeniorProject-master/test6/firstWorst")
+            outputMelody(best['name'],"/Users/thompson/Desktop/Spring21/SeniorProject/SeniorProject-master/test7/firstBest")
+            outputMelody(worst['name'],"/Users/thompson/Desktop/Spring21/SeniorProject/SeniorProject-master/test7/firstWorst")
         
         if i==(gens/2):
-            outputMelody(best['name'],"/Users/thompson/Desktop/Spring21/SeniorProject/SeniorProject-master/test6/middleBest")
-            outputMelody(worst['name'],"/Users/thompson/Desktop/Spring21/SeniorProject/SeniorProject-master/test6/middleWorst")
+            outputMelody(best['name'],"/Users/thompson/Desktop/Spring21/SeniorProject/SeniorProject-master/test7/middleBest")
+            outputMelody(worst['name'],"/Users/thompson/Desktop/Spring21/SeniorProject/SeniorProject-master/test7/middleWorst")
 
-    outputMelody(best['name'],"/Users/thompson/Desktop/Spring21/SeniorProject/SeniorProject-master/test6/finalBest")
-    outputMelody(worst['name'],"/Users/thompson/Desktop/Spring21/SeniorProject/SeniorProject-master/test6/finalWorst")
+    outputMelody(best['name'],"/Users/thompson/Desktop/Spring21/SeniorProject/SeniorProject-master/test7/finalBest")
+    outputMelody(worst['name'],"/Users/thompson/Desktop/Spring21/SeniorProject/SeniorProject-master/test7/finalWorst")
     
     print("results from "+ str(gens) +" generations of melodies size "+ str(length))
     print("best: "+ str(best['score'])+ " | worst: "+ str(worst['score']))
